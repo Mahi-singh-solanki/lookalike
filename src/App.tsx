@@ -12,6 +12,8 @@ export default function App() {
   const hydrate = useAuthStore((state) => state.hydrate);
   const commandPalette = useUiStore((state) => state.commandPalette);
   const setCommandPalette = useUiStore((state) => state.setCommandPalette);
+  const darkMode = useUiStore((state) => state.darkMode);
+  const toggleDarkMode = useUiStore((state) => state.toggleDarkMode);
 
   useEffect(() => {
     void hydrate();
@@ -27,6 +29,25 @@ export default function App() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [commandPalette, setCommandPalette]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("formflow_theme");
+    if (!saved) {
+      localStorage.setItem("formflow_theme", "light");
+      if (darkMode) toggleDarkMode();
+      return;
+    }
+    const shouldDark = saved === "dark";
+    if (shouldDark !== darkMode) toggleDarkMode();
+    // initialize from persisted preference only once
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    document.body.classList.toggle("theme-dark", darkMode);
+    document.body.classList.toggle("theme-light", !darkMode);
+    localStorage.setItem("formflow_theme", darkMode ? "dark" : "light");
+  }, [darkMode]);
 
   return (
     <>
