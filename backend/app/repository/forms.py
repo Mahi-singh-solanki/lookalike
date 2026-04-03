@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from app.models import Form,User
+from app.repository import email_verify
 
 
 def create_form(current_user,form,db:Session):
@@ -62,7 +63,7 @@ def add_admins(form_id, data, db: Session):
     form = db.query(Form).filter(Form.id == form_id).first()
     if not form:
         return {"error": "Form not found"}
-
+    
     users = db.query(User).filter(User.id.in_(data.user_ids)).all()
 
     if not users:
@@ -70,6 +71,7 @@ def add_admins(form_id, data, db: Session):
 
     for user in users:
         if user not in form.users:
+            email_verify.send_email(user.email,"Invitation to build forms",f"You have been invited to collab for form at http://localhost:5173/builder/{form.id}")
             form.users.append(user)
 
     db.commit()
