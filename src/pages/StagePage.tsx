@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { useNavigate, useParams } from "react-router-dom";
 import { formsApi, responsesApi, uploadApi } from "../lib/api";
 import type { FormSchema } from "../types/form";
@@ -12,6 +12,8 @@ export const StagePage = () => {
   const [schema, setSchema] = useState<FormSchema | null>(null);
   const [isPublished, setIsPublished] = useState(true);
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
+  const [showValidationPulse, setShowValidationPulse] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
 
   const numericFormId = Number(formId);
 
@@ -47,6 +49,35 @@ export const StagePage = () => {
     );
   }
 
+  if (submitted) {
+    return (
+      <div className="stage-page-bg grid min-h-screen place-items-center px-4 py-8">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-[min(620px,94vw)] rounded-[2rem] border border-white/55 bg-white/90 p-8 text-center text-slate-800 shadow-glow"
+        >
+          <h1 className="text-3xl font-bold">Thanks for filling the form</h1>
+          <p className="mt-2 text-sm text-slate-600">Your response has been submitted successfully.</p>
+          <div className="mt-6 flex flex-wrap justify-center gap-2">
+            <button
+              className="rounded-xl bg-cyan-500 px-4 py-2 text-sm font-semibold text-white"
+              onClick={() => {
+                setAnswers({});
+                setSubmitted(false);
+              }}
+            >
+              Submit Another Response
+            </button>
+            <button className="rounded-xl bg-slate-200 px-4 py-2 text-sm" onClick={() => navigate("/")}>
+              Back to Home
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
   const setAnswer = (key: string, value: unknown) => {
     setAnswers((prev) => ({ ...prev, [key]: value }));
   };
@@ -54,11 +85,19 @@ export const StagePage = () => {
   const renderInput = (field: FormSchema["fields"][number]) => {
     const options = field.options ?? ["Option 1", "Option 2"];
     if (field.type === "textarea") {
-      return <textarea className="w-full rounded-xl border border-slate-200 px-3 py-2" onChange={(event) => setAnswer(field.id, event.target.value)} />;
+      return (
+        <textarea
+          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 outline-none focus:border-cyan-300"
+          onChange={(event) => setAnswer(field.id, event.target.value)}
+        />
+      );
     }
     if (field.type === "select") {
       return (
-        <select className="w-full rounded-xl border border-slate-200 px-3 py-2" onChange={(event) => setAnswer(field.id, event.target.value)}>
+        <select
+          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 outline-none focus:border-cyan-300"
+          onChange={(event) => setAnswer(field.id, event.target.value)}
+        >
           <option value="">Select an option</option>
           {options.map((option) => (
             <option key={option} value={option}>
@@ -72,7 +111,7 @@ export const StagePage = () => {
       return (
         <select
           multiple
-          className="w-full rounded-xl border border-slate-200 px-3 py-2"
+          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 outline-none focus:border-cyan-300"
           onChange={(event) => setAnswer(field.id, Array.from(event.currentTarget.selectedOptions).map((option) => option.value))}
         >
           {options.map((option) => (
@@ -152,53 +191,75 @@ export const StagePage = () => {
               ? "email"
               : field.type === "phone"
                 ? "tel"
-              : field.type === "date"
-                ? "date"
-                : "text"
+                : field.type === "date"
+                  ? "date"
+                  : "text"
         }
-        className="w-full rounded-xl border border-slate-200 px-3 py-2"
+        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 outline-none focus:border-cyan-300"
         onChange={(event) => setAnswer(field.id, field.type === "number" ? Number(event.target.value) : event.target.value)}
       />
     );
   };
 
   return (
-    <div className="soft-scroll min-h-screen overflow-auto p-6">
-      <div className="mx-auto w-[min(760px,95vw)] rounded-[2rem] bg-slate-50 p-7 text-slate-800 shadow-glow">
-        <h1 className="text-2xl font-bold">{schema.title}</h1>
-        <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-200">
-          <motion.div className="h-full bg-cyan-500" animate={{ width: `${progress}%` }} />
-        </div>
+    <div className="stage-page-bg min-h-screen px-4 py-8">
+      <motion.div
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={`mx-auto w-[min(860px,96vw)] rounded-[2rem] border border-white/55 bg-white/90 p-6 text-slate-800 shadow-glow ${
+          showValidationPulse ? "ring-2 ring-rose-300/60" : ""
+        }`}
+      >
+        <header className="mb-6">
+          <div className="text-xs uppercase tracking-wide text-slate-500">Live Form</div>
+          <h1 className="mt-1 text-3xl font-bold">{schema.title}</h1>
+          <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-200">
+            <motion.div className="h-full bg-cyan-500" animate={{ width: `${progress}%` }} />
+          </div>
+          <div className="mt-1 text-xs text-slate-500">{progress}% complete</div>
+        </header>
 
-        <div className="mt-6 space-y-4">
-          {schema.fields.map((field) => (
-            <motion.div key={field.id} layout initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl border border-slate-200 p-4">
-              <label className="mb-2 block text-sm font-semibold">{field.label}</label>
-              {renderInput(field)}
-            </motion.div>
-          ))}
-        </div>
+        <AnimatePresence mode="popLayout">
+          <div className="space-y-4">
+            {schema.fields.map((field) => (
+              <motion.div
+                key={field.id}
+                layout
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                className="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft"
+              >
+                <label className="mb-2 block text-sm font-semibold">{field.label}</label>
+                {renderInput(field)}
+              </motion.div>
+            ))}
+          </div>
+        </AnimatePresence>
 
-        <div className="mt-6 flex gap-2">
+        <div className="mt-7 flex flex-wrap gap-2">
           <button
-            className="rounded-xl bg-cyan-500 px-4 py-2 text-white"
+            className="rounded-xl bg-cyan-500 px-4 py-2 text-sm font-semibold text-white"
             onClick={async () => {
               try {
                 await responsesApi.submit(numericFormId, answers);
                 pushToast({ title: "Form submitted successfully" });
-                setAnswers({});
+                setSubmitted(true);
+                setShowValidationPulse(false);
               } catch (error: any) {
+                setShowValidationPulse(true);
+                setTimeout(() => setShowValidationPulse(false), 600);
                 pushToast({ title: "Submission failed", description: error?.message ?? "Please check required fields", tone: "error" });
               }
             }}
           >
-            Submit
+            Submit Response
           </button>
-          <button className="rounded-xl bg-slate-200 px-4 py-2" onClick={() => navigate(`/`)}>
-            Back to Builder
+          <button className="rounded-xl bg-slate-200 px-4 py-2 text-sm" onClick={() => navigate(`/`)}>
+            Back to Home
           </button>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 };

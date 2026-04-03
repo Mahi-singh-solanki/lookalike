@@ -1,30 +1,11 @@
 import asyncio
-import os
-from datetime import datetime
-from pathlib import Path
-from string import ascii_uppercase
 from typing import Any
 
 import socketio
 
 
-def _int_env(name: str, default: int) -> int:
-    value = os.getenv(name)
-    if value is None:
-        return default
-    try:
-        return int(value)
-    except ValueError:
-        return default
-
-
-CANVAS_WIDTH = _int_env("MULTIUSER_CANVAS_WIDTH", 1000)
-CANVAS_HEIGHT = _int_env("MULTIUSER_CANVAS_HEIGHT", 600)
-REGION_COUNT = max(1, _int_env("MULTIUSER_REGION_COUNT", 5))
-REGION_LETTERS = list(ascii_uppercase[: min(REGION_COUNT, len(ascii_uppercase))])
-
-_default_log_file = Path(__file__).resolve().parents[1] / "region-movement.log"
-LOG_FILE = Path(os.getenv("MULTIUSER_LOG_FILE", str(_default_log_file)))
+CANVAS_WIDTH = 3200
+CANVAS_HEIGHT = 2200
 
 sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")
 users_by_socket_id: dict[str, dict[str, Any]] = {}
@@ -34,17 +15,6 @@ users_lock = asyncio.Lock()
 
 def _clamp(value: float, min_value: float, max_value: float) -> float:
     return min(max(value, min_value), max_value)
-
-
-def _region_from_x(x: float) -> str:
-    safe_x = _clamp(x, 0, CANVAS_WIDTH - 1)
-    region_width = CANVAS_WIDTH / len(REGION_LETTERS)
-    region_index = min(int(safe_x // region_width), len(REGION_LETTERS) - 1)
-    return REGION_LETTERS[region_index]
-
-
-def _format_time(dt: datetime) -> str:
-    return dt.strftime("%H:%M:%S")
 
 
 def _pick_color_from_name(username: str) -> str:
@@ -60,25 +30,6 @@ def _safe_room_id(raw_form_id: Any) -> str:
 
 def _room_users(room_id: str) -> list[dict[str, Any]]:
     return [user for user in users_by_socket_id.values() if user.get("roomId") == room_id]
-
-
-async def ensure_log_file() -> None:
-    LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
-    await asyncio.to_thread(LOG_FILE.touch, exist_ok=True)
-
-
-async def _write_region_log(username: str, from_region: str, to_region: str) -> None:
-    line = (
-        f"{username} at {_format_time(datetime.now())} went to region "
-        f"{to_region.lower()} from region {from_region.lower()}"
-    )
-
-    def _append() -> None:
-        with LOG_FILE.open("a", encoding="utf-8") as f:
-            f.write(f"{line}\n")
-
-    await asyncio.to_thread(_append)
-    print(line)
 
 
 @sio.event
@@ -101,14 +52,12 @@ async def join(sid: str, payload: Any) -> None:
 
     await sio.enter_room(sid, room_id)
 
-    initial_region = _region_from_x(CANVAS_WIDTH / 2)
     user = {
         "socketId": sid,
         "userId": user_id,
         "username": username,
         "x": CANVAS_WIDTH / 2,
         "y": CANVAS_HEIGHT / 2,
-        "region": initial_region,
         "roomId": room_id,
         "color": payload.get("color") or _pick_color_from_name(username),
         "editingFieldId": None,
@@ -150,12 +99,9 @@ async def cursor_move(sid: str, payload: dict[str, Any]) -> None:
 
         x = _clamp(float(payload.get("x", 0)), 0, CANVAS_WIDTH)
         y = _clamp(float(payload.get("y", 0)), 0, CANVAS_HEIGHT)
-        next_region = _region_from_x(x)
-        previous_region = user["region"]
 
         user["x"] = x
         user["y"] = y
-        user["region"] = next_region
 
         emit_payload = {
             "socketId": user["socketId"],
@@ -163,7 +109,6 @@ async def cursor_move(sid: str, payload: dict[str, Any]) -> None:
             "username": user["username"],
             "x": x,
             "y": y,
-            "region": next_region,
             "color": user["color"],
             "editingFieldId": user.get("editingFieldId"),
         }
@@ -171,12 +116,6 @@ async def cursor_move(sid: str, payload: dict[str, Any]) -> None:
         room_id = user.get("roomId", "global")
 
     await sio.emit("cursor_moved", emit_payload, room=room_id)
-
-    if next_region != previous_region:
-        try:
-            await _write_region_log(user["username"], previous_region, next_region)
-        except Exception as exc:
-            print(f"Failed to write movement log: {exc}")
 
 
 @sio.event

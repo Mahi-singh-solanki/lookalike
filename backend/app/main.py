@@ -7,7 +7,7 @@ from app.database import engine
 from app import models
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import auth, forms_responses
-from app.realtime import sio, ensure_log_file
+from app.realtime import sio
 
 load_dotenv()
 
@@ -30,10 +30,6 @@ fastapi_app.add_middleware(
 )
 fastapi_app.include_router(auth.router)
 fastapi_app.include_router(forms_responses.router)
-
-@fastapi_app.on_event("startup")
-async def startup_event() -> None:
-    await ensure_log_file()
 
 
 @fastapi_app.get("/")

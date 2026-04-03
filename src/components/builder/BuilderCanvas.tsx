@@ -10,22 +10,25 @@ import {
   type DragEndEvent,
 } from "@dnd-kit/core";
 import { motion } from "framer-motion";
+import { MousePointer2 } from "lucide-react";
 import { CanvasField } from "./CanvasField";
 import { FieldLibrary } from "./FieldLibrary";
 import { useBuilderStore } from "../../store/builderStore";
 import type { FieldType, FormField } from "../../types/form";
 
 const grid = 20;
+const CANVAS_WIDTH = 3200;
+const CANVAS_HEIGHT = 2200;
 
 const DroppableCanvas = ({ children }: { children: React.ReactNode }) => {
   const { setNodeRef, isOver } = useDroppable({ id: "canvas-drop" });
   return (
     <div
       ref={setNodeRef}
-      className={`relative h-[2200px] w-[3200px] rounded-[2.4rem] border ${
-        isOver ? "border-cyan-300/60" : "border-white/10"
-      }`}
+      className={`relative rounded-[2.4rem] border ${isOver ? "border-cyan-300/60" : "border-white/10"}`}
       style={{
+        width: CANVAS_WIDTH,
+        height: CANVAS_HEIGHT,
         backgroundImage:
           "linear-gradient(to right, rgba(124,154,255,0.13) 1px, transparent 1px), linear-gradient(to bottom, rgba(124,154,255,0.13) 1px, transparent 1px)",
         backgroundSize: `${grid}px ${grid}px`,
@@ -79,8 +82,8 @@ export const BuilderCanvas = ({
 
     const x = (pointerX - rect.left + wrap.scrollLeft - offset.x) / scale;
     const y = (pointerY - rect.top + wrap.scrollTop - offset.y) / scale;
-    const clampedX = Math.max(40, Math.min(3200 - 300, x));
-    const clampedY = Math.max(40, Math.min(2200 - 120, y));
+    const clampedX = Math.max(40, Math.min(CANVAS_WIDTH - 300, x));
+    const clampedY = Math.max(40, Math.min(CANVAS_HEIGHT - 120, y));
     addField(dataType, clampedX, clampedY);
   };
 
@@ -98,8 +101,11 @@ export const BuilderCanvas = ({
         ref={canvasWrapRef}
         className="soft-scroll relative h-screen overflow-auto px-6 pb-32 pt-24"
         onMouseMove={(event) => {
-          const rect = event.currentTarget.getBoundingClientRect();
-          emitCursor(event.clientX - rect.left, event.clientY - rect.top);
+          const wrap = event.currentTarget;
+          const rect = wrap.getBoundingClientRect();
+          const canvasX = (event.clientX - rect.left + wrap.scrollLeft - offset.x) / scale;
+          const canvasY = (event.clientY - rect.top + wrap.scrollTop - offset.y) / scale;
+          emitCursor(Math.max(0, Math.min(CANVAS_WIDTH, canvasX)), Math.max(0, Math.min(CANVAS_HEIGHT, canvasY)));
         }}
         onWheel={(event) => {
           if (!event.ctrlKey) return;
@@ -140,15 +146,17 @@ export const BuilderCanvas = ({
                 onPositionChange={(x, y) => patchField(field.id, { x, y })}
               />
             ))}
+
+            {presenceUsers.map((user) => (
+              <motion.div key={user.socketId} className="pointer-events-none absolute z-40" animate={{ x: user.x, y: user.y }}>
+                <div className="flex items-center gap-1">
+                  <MousePointer2 className="h-4 w-4" style={{ color: user.color }} />
+                  <div className="rounded-lg bg-black/70 px-2 py-0.5 text-[10px] text-white">{user.username}</div>
+                </div>
+              </motion.div>
+            ))}
           </DroppableCanvas>
         </motion.div>
-
-        {presenceUsers.map((user) => (
-          <motion.div key={user.socketId} className="pointer-events-none absolute z-40" animate={{ x: user.x, y: user.y }}>
-            <div className="h-3 w-3 rounded-full" style={{ backgroundColor: user.color }} />
-            <div className="mt-1 rounded-lg bg-black/60 px-2 py-0.5 text-[10px]">{user.username}</div>
-          </motion.div>
-        ))}
 
         <DragOverlay>
           {dragType && (

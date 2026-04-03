@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Eye, EyeOff, GitBranch, History, Moon, ShieldPlus, Sparkles, Sun } from "lucide-react";
+import { Check, Eye, EyeOff, GitBranch, History, Moon, ShieldPlus, Sparkles, Sun } from "lucide-react";
 import { GlassPanel } from "../common/GlassPanel";
 import { AvatarStack } from "../common/AvatarStack";
 import { ConnectionBadge } from "../common/ConnectionBadge";
@@ -11,35 +11,42 @@ export const TopToolbar = ({
   onOpenAccess,
   logicOpen,
   onToggleLogic,
+  onAutoArrange,
   formTitle,
   onFormTitleChange,
   isPublished,
   onTogglePublish,
+  saveState,
 }: {
   onOpenAccess: () => void;
   logicOpen: boolean;
   onToggleLogic: () => void;
+  onAutoArrange: () => void;
   formTitle: string;
   onFormTitleChange: (title: string) => void;
   isPublished: boolean;
   onTogglePublish: () => void;
+  saveState: "idle" | "saving" | "saved";
 }) => {
   const navigate = useNavigate();
   const { presenceUsers, connectionStatus, previewMode, setPreviewMode, undo, redo, formId } = useBuilderStore();
   const { darkMode, toggleDarkMode, setCommandPalette } = useUiStore();
 
   return (
-    <motion.div layout className="pointer-events-none fixed left-1/2 top-4 z-30 w-[min(98vw,1220px)] -translate-x-1/2">
-      <GlassPanel className="pointer-events-auto flex flex-wrap items-center justify-between gap-y-2 px-4 py-3">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <div className="rounded-xl bg-cyan-300/20 px-3 py-1 text-xs font-semibold text-cyan-100">FormFlow Canvas</div>
+    <motion.div layout className="pointer-events-none fixed left-1/2 top-4 z-30 w-[min(98vw,1320px)] -translate-x-1/2">
+      <GlassPanel className="pointer-events-auto flex flex-wrap items-center justify-between gap-y-2 border border-white/10 px-4 py-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-2.5">
+          <div className="rounded-xl bg-cyan-300/20 px-3 py-1 text-xs font-semibold text-cyan-100">Canvas</div>
           <input
             value={formTitle}
             onChange={(event) => onFormTitleChange(event.target.value)}
-            className="w-[min(42vw,280px)] min-w-[150px] rounded-xl border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-cyan-50"
+            className="w-[min(42vw,300px)] min-w-[180px] rounded-xl border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold text-cyan-50"
             placeholder="Untitled FormFlow"
           />
           <ConnectionBadge status={connectionStatus} />
+          <div className="rounded-xl bg-white/10 px-2.5 py-1 text-[11px] text-slate-200">
+            {saveState === "saving" ? "Saving..." : saveState === "saved" ? "All changes saved" : "Ready"}
+          </div>
           <button
             className="rounded-lg bg-white/10 px-2 py-1 text-xs"
             onClick={() => setPreviewMode(previewMode === "off" ? "split" : "off")}
@@ -56,6 +63,9 @@ export const TopToolbar = ({
             <GitBranch className="mr-1 inline h-3.5 w-3.5" />
             {logicOpen ? "Hide Logic" : "Show Logic"}
           </button>
+          <button className="rounded-lg bg-white/10 px-2 py-1 text-xs" onClick={onAutoArrange}>
+            Arrange
+          </button>
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-2">
@@ -67,6 +77,13 @@ export const TopToolbar = ({
               {isPublished ? "Unpublish" : "Publish Form"}
             </button>
           )}
+          <button
+            className="inline-flex items-center gap-1 rounded-xl bg-emerald-300/20 px-3 py-1 text-xs font-semibold text-emerald-100"
+            onClick={() => setPreviewMode(previewMode === "off" ? "split" : "off")}
+          >
+            <Check className="h-3.5 w-3.5" />
+            Preview
+          </button>
           <button className="rounded-xl bg-white/10 px-3 py-1 text-xs" onClick={() => setCommandPalette(true)}>
             <Sparkles className="mr-1 inline h-3 w-3" /> Cmd/Ctrl + K
           </button>

@@ -11,6 +11,15 @@ const defaultSchema: FormSchema = {
   updatedAt: Date.now(),
 };
 
+const CANVAS_WIDTH = 3200;
+const CANVAS_HEIGHT = 2200;
+const FIELD_WIDTH = 300;
+const FIELD_HEIGHT = 140;
+const H_GAP = 80;
+const V_GAP = 70;
+const PADDING_X = 120;
+const PADDING_Y = 120;
+
 const randomColor = (input: string) => {
   const palette = ["#34d399", "#60a5fa", "#f59e0b", "#f472b6", "#22d3ee", "#a78bfa"];
   const hash = input.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
@@ -18,6 +27,33 @@ const randomColor = (input: string) => {
 };
 
 export type ConnectionStatus = "connected" | "reconnecting" | "disconnected";
+
+const snap20 = (value: number) => Math.round(value / 20) * 20;
+
+const createGridLayoutFields = (fields: FormSchema["fields"], columns = 4): FormSchema["fields"] => {
+  const maxColumns = Math.max(1, Math.floor((CANVAS_WIDTH - PADDING_X * 2) / (FIELD_WIDTH + H_GAP)));
+  const totalColumns = Math.min(columns, maxColumns);
+
+  return fields.map((field, index) => {
+    const col = index % totalColumns;
+    const row = Math.floor(index / totalColumns);
+    const x = snap20(PADDING_X + col * (FIELD_WIDTH + H_GAP));
+    const y = snap20(PADDING_Y + row * (FIELD_HEIGHT + V_GAP));
+    return {
+      ...field,
+      x: Math.max(40, Math.min(CANVAS_WIDTH - FIELD_WIDTH, x)),
+      y: Math.max(40, Math.min(CANVAS_HEIGHT - FIELD_HEIGHT, y)),
+      width: field.width ?? 280,
+    };
+  });
+};
+
+const shouldAutoLayoutFields = (fields: FormSchema["fields"]) => {
+  if (fields.length <= 1) return false;
+  if (fields.some((field) => field.x === undefined || field.y === undefined)) return true;
+  const buckets = new Set(fields.map((field) => `${snap20(field.x ?? 0)}:${snap20(field.y ?? 0)}`));
+  return buckets.size <= Math.ceil(fields.length * 0.7);
+};
 
 interface BuilderState {
   formId: number | null;
@@ -48,6 +84,7 @@ interface BuilderState {
   setEditingField: (fieldId: string | null, username: string | null) => void;
   syncSchemaToBackend: () => Promise<void>;
   broadcastSchema: () => void;
+  autoArrange: () => void;
   undo: () => void;
   redo: () => void;
   applyRemoteSchema: (event: RealtimeSchemaEvent) => void;
@@ -78,14 +115,17 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
   },
   loadForm: async (id) => {
     const data = await formsApi.get(id);
+    const rawFields = (data.schema?.fields ?? []).map((field, idx) => ({
+      ...field,
+      x: field.x ?? 120 + (idx % 3) * 280,
+      y: field.y ?? 120 + Math.floor(idx / 3) * 160,
+    }));
+    const fields = shouldAutoLayoutFields(rawFields) ? createGridLayoutFields(rawFields, 4) : rawFields;
+
     const loadedSchema = {
       ...defaultSchema,
       ...data.schema,
-      fields: (data.schema?.fields ?? []).map((field, idx) => ({
-        ...field,
-        x: field.x ?? 120 + (idx % 3) * 280,
-        y: field.y ?? 120 + Math.floor(idx / 3) * 160,
-      })),
+      fields,
       updatedAt: Date.now(),
       version: data.schema?.version ?? 0,
     } satisfies FormSchema;
@@ -234,7 +274,9 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
 
     socket.on("cursor_moved", (user: PresenceUser) => {
       set((state) => ({
-        presenceUsers: state.presenceUsers.map((entry) => (entry.socketId === user.socketId ? { ...entry, ...user } : entry)),
+        presenceUsers: state.presenceUsers.some((entry) => entry.socketId === user.socketId)
+          ? state.presenceUsers.map((entry) => (entry.socketId === user.socketId ? { ...entry, ...user } : entry))
+          : [...state.presenceUsers, user],
       }));
     });
 
@@ -296,6 +338,14 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
         username,
       });
     }
+  },
+  autoArrange: () => {
+    const { schema } = get();
+    const arranged = createGridLayoutFields(schema.fields, 4);
+    get().updateSchemaLocal({
+      ...schema,
+      fields: arranged,
+    });
   },
   undo: () => {
     set((state) => {

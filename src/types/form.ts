@@ -55,7 +55,6 @@ export interface PresenceUser {
   color: string;
   x: number;
   y: number;
-  region?: string;
   editingFieldId?: string | null;
 }
 

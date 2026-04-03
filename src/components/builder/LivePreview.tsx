@@ -66,23 +66,23 @@ const PreviewField = ({
         <label className="mb-2 block break-words text-sm font-semibold">{field.label}</label>
         {renderInput()}
       </div>
-      <div className="flex h-[120px] w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white px-1 py-2">
+      <div className="flex h-[120px] w-14 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white px-1 py-2">
         <div className="flex flex-col gap-1">
           <button
             onClick={onMoveUp}
             disabled={!canMoveUp}
-            className="rounded-md bg-slate-100 px-1 text-xs text-slate-700 disabled:opacity-40"
+            className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] text-slate-700 disabled:opacity-40"
             title="Move up"
           >
-            ↑
+            Up
           </button>
           <button
             onClick={onMoveDown}
             disabled={!canMoveDown}
-            className="rounded-md bg-slate-100 px-1 text-xs text-slate-700 disabled:opacity-40"
+            className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] text-slate-700 disabled:opacity-40"
             title="Move down"
           >
-            ↓
+            Down
           </button>
         </div>
       </div>
@@ -128,7 +128,7 @@ export const LivePreview = ({ schema }: { schema: FormSchema }) => {
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 20 }}
-          className={`${previewMode === "split" ? "fixed right-6 top-24 h-[70vh] w-[min(34vw,560px)] min-w-[360px]" : "fixed inset-0 z-40 p-8"}`}
+          className={`${previewMode === "split" ? "fixed right-6 top-24 z-30 h-[70vh] w-[min(34vw,560px)] min-w-[360px]" : "fixed inset-0 z-40 p-8"}`}
         >
           <div className="soft-scroll h-full overflow-x-hidden overflow-y-auto rounded-3xl bg-slate-50 p-6 shadow-glow">
             <div className="mb-5 text-lg font-bold text-slate-900">{schema.title}</div>
