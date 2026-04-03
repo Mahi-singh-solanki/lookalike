@@ -32,10 +32,14 @@ def get_responses(form_id: int, db: Session = Depends(get_db)):
 def export_responses(form_id: int, db: Session = Depends(get_db)):
     return responses.export_responses(form_id,db)
 
-@router.post("/forms/{form_id}/admins")
+@router.post("/{form_id}/admins")
 def add_admins(form_id: int, data: AddAdmins, db: Session = Depends(get_db)):
     return forms.add_admins(form_id,data,db)
 
-@router.get("/forms/{form_id}/admins")
+@router.get("/{form_id}/admins")
 def get_admins(form_id: int, db: Session = Depends(get_db)):
     return forms.get_admins(form_id,db)
+
+@router.put("/{form_id}/update")
+def update_visibility(form_id:int,db: Session = Depends(get_db)):
+    return forms.change_visibility(form_id,db)
