@@ -1,0 +1,63 @@
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-0: #070b1c;
+  --bg-1: #0f1940;
+  --bg-2: #12395e;
+  --glass: rgba(18, 25, 49, 0.58);
+  --glass-border: rgba(255, 255, 255, 0.18);
+  --text-main: #eff6ff;
+  --text-soft: #bdd4f5;
+  --accent: #78e8ff;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui;
+  background:
+    radial-gradient(circle at 12% 16%, rgba(74, 211, 255, 0.22), transparent 34%),
+    radial-gradient(circle at 80% 8%, rgba(230, 111, 255, 0.22), transparent 28%),
+    linear-gradient(150deg, var(--bg-0), var(--bg-1) 56%, var(--bg-2));
+  color: var(--text-main);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.glass {
+  background: var(--glass);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+}
+
+.soft-scroll::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+.soft-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(173, 216, 255, 0.4);
+}
+
+.react-flow__node {
+  border-radius: 14px;
+  border: 1px solid rgba(129, 224, 255, 0.4);
+  background: rgba(12, 24, 53, 0.88);
+  color: #dff8ff;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+}
+
+.react-flow__edge-path {
+  stroke: #62d0ff;
+  stroke-width: 2;
+  filter: drop-shadow(0 0 5px rgba(98, 208, 255, 0.6));
+}

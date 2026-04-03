@@ -22,8 +22,8 @@ def register(user:UserLogin,db:Session=Depends(get_db)):
 def get_current_user_profile(db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)):
     user=db.query(User).filter(User.email==current_user).first()
-    if not user.is_verified:
-        raise HTTPException(status_code=404,detail="Invalid credentials")
+    # if not user.is_verified:
+    #     raise HTTPException(status_code=404,detail="Invalid credentials")
     return user
 
 @router.get("/forms")

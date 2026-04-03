@@ -11,3 +11,4 @@ python-jose
 langchain
 langgraph
 langchain-groq
+python-socketio

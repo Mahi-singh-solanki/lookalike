@@ -17,8 +17,8 @@ def get_form(form_id: int, db: Session = Depends(get_db)):
     return forms.get_form(form_id,db)
 
 @router.put("/{form_id}")
-def update_form(form_id: int, updated: FormCreate, db: Session = Depends(get_db)):
-    return forms.update_form(form_id,updated,db)
+def update_form(form_id: int, updated: FormCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return forms.update_form(form_id,updated,current_user,db)
 
 @router.post("/responses/{form_id}")
 def submit_response(form_id: int, response: ResponseCreate, db: Session = Depends(get_db)):

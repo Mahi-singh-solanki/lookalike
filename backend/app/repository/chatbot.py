@@ -8,7 +8,10 @@ import json
 
 load_dotenv()
 
-llm=ChatGroq(model="llama-3.1-8b-instant",api_key=os.getenv("GROK_API_KEY"))
+llm = ChatGroq(
+    model=os.getenv("GROQ_MODEL", "llama-3.1-8b-instant"),
+    api_key=os.getenv("GROQ_API_KEY") or os.getenv("GROK_API_KEY"),
+)
 
 template = """
 You are an expert form generator.
@@ -35,7 +38,22 @@ STRICT RULES (DO NOT BREAK):
 
 3. Allowed field types ONLY:
 text, textarea, number, select, multiselect, radio, checkbox, date,
-date_range, file, email, phone, rating, slider
+file, email, phone, rating, slider
+
+Preferred node patterns:
+- text: name, username, city
+- textarea: address, bio, comments
+- number: age, quantity, price
+- select: country, gender, category
+- radio: yes/no, subscription type
+- multiselect: skills, interests, tags
+- checkbox: agree terms, preferences
+- date: birthdate, appointment
+- email: email address
+- phone: phone number
+- rating: product rating, feedback score
+- slider: volume, budget range
+- file: resume, image, document
 
 4. Rules:
 - "id" must be short, unique, lowercase (like q1, q2, name, email)

@@ -1,11 +1,12 @@
 from sqlalchemy.orm import Session
+from fastapi import HTTPException, status
 from app.models import Form,User
 
 
 def create_form(current_user,form,db:Session):
     user=db.query(User).filter(User.email==current_user).first()
-    if not current_user:
-        return {"error": "Unauthorized"}
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
     schema = {
         "title": form.title,
         "fields": [f.dict() for f in form.fields]
@@ -30,11 +31,18 @@ def get_form(form_id,db:Session):
 
     return form
 
-def update_form(form_id,updated,db:Session):
+def update_form(form_id,updated,current_user,db:Session):
+    user=db.query(User).filter(User.email==current_user).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
     form = db.query(Form).filter(Form.id == form_id).first()
 
     if not form:
-        return {"error": "Form not found"}
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Form not found")
+
+    if user not in form.users:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed to update this form")
 
     new_schema = {
         "title": updated.title,
