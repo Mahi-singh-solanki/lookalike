@@ -26,7 +26,7 @@ class Form(Base):
     title = Column(String)
     schema = Column(JSON)
     created_at = Column(DateTime, default=datetime.utcnow)
-
+    is_expired=Column(Boolean,default=False)
     users = relationship("User", secondary=form_users, back_populates="forms")
 
 class Response(Base):

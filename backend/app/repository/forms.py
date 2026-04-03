@@ -28,10 +28,7 @@ def get_form(form_id,db:Session):
     if not form:
         return {"error": "Form not found"}
 
-    return {
-        "id": form.id,
-        "schema": form.schema
-    }
+    return form
 
 def update_form(form_id,updated,db:Session):
     form = db.query(Form).filter(Form.id == form_id).first()
@@ -80,3 +77,14 @@ def get_admins(form_id, db: Session):
         {"id": user.id, "email": user.email}
         for user in form.users
     ]
+
+def change_visibility(form_id,db:Session):
+    form = db.query(Form).filter(Form.id == form_id).first()
+    if form.is_expired:
+        form.is_expired=False
+    else:
+        form.is_expired=True
+    db.commit()
+    return {
+        "message":"updated succesfully"
+    }
