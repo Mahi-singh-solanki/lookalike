@@ -71,7 +71,7 @@ def add_admins(form_id, data, db: Session):
 
     for user in users:
         if user not in form.users:
-            email_verify.send_email(user.email,"Invitation to build forms",f"You have been invited to collab for form at http://localhost:5173/builder/{form.id}")
+            email_verify.send_email(user.email,"Invitation to build forms",f"You have been invited to collab for form at https://formflowww.netlify.app/builder/{form.id}")
             form.users.append(user)
 
     db.commit()

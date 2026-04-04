@@ -17,7 +17,7 @@ fastapi_app = FastAPI(title="Lookalike")
 
 cors_origins = [
     origin.strip()
-    for origin in os.getenv("BACKEND_CORS_ORIGINS", "http://localhost:5173").split(",")
+    for origin in os.getenv("BACKEND_CORS_ORIGINS", "http://localhost:5173","https://formflowww.netlify.app").split(",")
     if origin.strip()
 ]
 
