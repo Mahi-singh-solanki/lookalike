@@ -4,6 +4,24 @@ import { useNavigate, useParams } from "react-router-dom";
 import { formsApi, responsesApi, uploadApi } from "../lib/api";
 import type { FormSchema } from "../types/form";
 import { useUiStore } from "../store/uiStore";
+import { isFieldVisible } from "../lib/fieldLogic";
+
+const parseDefaultByType = (field: FormSchema["fields"][number], value: string): unknown => {
+  if (field.type === "number" || field.type === "slider" || field.type === "rating") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : value;
+  }
+  if (field.type === "checkbox") {
+    return value.toLowerCase() === "true";
+  }
+  if (field.type === "multiselect") {
+    return value
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  }
+  return value;
+};
 
 export const StagePage = () => {
   const { formId } = useParams();
@@ -24,15 +42,26 @@ export const StagePage = () => {
       .then((data) => {
         setSchema(data.schema);
         setIsPublished(!Boolean(data.is_expired));
+        const defaults = Object.fromEntries(
+          (data.schema?.fields ?? [])
+            .filter((field) => field.config?.defaultValue !== undefined && field.config.defaultValue !== "")
+            .map((field) => [field.id, parseDefaultByType(field, field.config?.defaultValue ?? "")]),
+        );
+        setAnswers(defaults);
       })
       .catch(() => pushToast({ title: "Failed to load form" }));
   }, [numericFormId, pushToast]);
 
+  const visibleFields = useMemo(
+    () => (schema?.fields ?? []).filter((field) => isFieldVisible(field, answers)),
+    [answers, schema?.fields],
+  );
+
   const progress = useMemo(() => {
-    if (!schema || !schema.fields.length) return 0;
-    const filled = schema.fields.filter((f) => answers[f.id] !== undefined && answers[f.id] !== "").length;
-    return Math.round((filled / schema.fields.length) * 100);
-  }, [answers, schema]);
+    if (!visibleFields.length) return 0;
+    const filled = visibleFields.filter((f) => answers[f.id] !== undefined && answers[f.id] !== "").length;
+    return Math.round((filled / visibleFields.length) * 100);
+  }, [answers, visibleFields]);
 
   if (!schema) {
     return <div className="grid min-h-screen place-items-center text-slate-300">Loading form...</div>;
@@ -84,9 +113,16 @@ export const StagePage = () => {
 
   const renderInput = (field: FormSchema["fields"][number]) => {
     const options = field.options ?? ["Option 1", "Option 2"];
+    const min = field.config?.min ?? (field.type === "rating" ? 1 : 0);
+    const max = field.config?.max ?? (field.type === "rating" ? 5 : 100);
+    const step = field.config?.step ?? 1;
+    const placeholder = field.config?.placeholder ?? "";
     if (field.type === "textarea") {
       return (
         <textarea
+          rows={field.config?.rows ?? 3}
+          value={String(answers[field.id] ?? "")}
+          placeholder={placeholder}
           className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 outline-none focus:border-cyan-300"
           onChange={(event) => setAnswer(field.id, event.target.value)}
         />
@@ -95,6 +131,7 @@ export const StagePage = () => {
     if (field.type === "select") {
       return (
         <select
+          value={String(answers[field.id] ?? "")}
           className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 outline-none focus:border-cyan-300"
           onChange={(event) => setAnswer(field.id, event.target.value)}
         >
@@ -111,6 +148,7 @@ export const StagePage = () => {
       return (
         <select
           multiple
+          value={Array.isArray(answers[field.id]) ? (answers[field.id] as unknown[]).map((entry) => String(entry)) : []}
           className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 outline-none focus:border-cyan-300"
           onChange={(event) => setAnswer(field.id, Array.from(event.currentTarget.selectedOptions).map((option) => option.value))}
         >
@@ -127,7 +165,13 @@ export const StagePage = () => {
         <div className="space-y-2 text-sm">
           {options.map((option) => (
             <label key={option} className="flex items-center gap-2">
-              <input type="radio" name={field.id} value={option} onChange={(event) => setAnswer(field.id, event.target.value)} />
+              <input
+                type="radio"
+                name={field.id}
+                value={option}
+                checked={answers[field.id] === option}
+                onChange={(event) => setAnswer(field.id, event.target.value)}
+              />
               {option}
             </label>
           ))}
@@ -135,14 +179,16 @@ export const StagePage = () => {
       );
     }
     if (field.type === "checkbox") {
-      return <input type="checkbox" onChange={(event) => setAnswer(field.id, event.target.checked)} />;
+      return <input type="checkbox" checked={Boolean(answers[field.id])} onChange={(event) => setAnswer(field.id, event.target.checked)} />;
     }
     if (field.type === "rating") {
       return (
         <input
           type="range"
-          min={1}
-          max={5}
+          min={min}
+          max={max}
+          step={step}
+          value={typeof answers[field.id] === "number" ? Number(answers[field.id]) : min}
           className="w-full accent-cyan-500"
           onChange={(event) => setAnswer(field.id, Number(event.target.value))}
         />
@@ -152,8 +198,10 @@ export const StagePage = () => {
       return (
         <input
           type="range"
-          min={0}
-          max={100}
+          min={min}
+          max={max}
+          step={step}
+          value={typeof answers[field.id] === "number" ? Number(answers[field.id]) : min}
           className="w-full accent-cyan-500"
           onChange={(event) => setAnswer(field.id, Number(event.target.value))}
         />
@@ -163,17 +211,20 @@ export const StagePage = () => {
       return (
         <input
           type="file"
+          accept={field.config?.accept}
+          multiple={Boolean(field.config?.multiple)}
           onChange={async (event) => {
-            const file = event.target.files?.[0];
-            if (!file) return;
+            const files = field.config?.multiple ? Array.from(event.target.files ?? []) : [event.target.files?.[0]].filter(Boolean) as File[];
+            if (!files.length) return;
             try {
-              const uploaded = await uploadApi.upload(file);
-              setAnswer(field.id, uploaded.url);
+              const uploads = await Promise.all(files.map((file) => uploadApi.upload(file)));
+              const urls = uploads.map((entry) => entry.url);
+              setAnswer(field.id, field.config?.multiple ? urls : urls[0]);
               pushToast({ title: "File uploaded" });
             } catch {
               pushToast({
                 title: "Upload failed",
-                description: "Configure /upload backend endpoint or Cloudinary env vars",
+                description: "Configure Cloudinary env vars and upload preset",
                 tone: "error",
               });
             }
@@ -196,7 +247,14 @@ export const StagePage = () => {
                   : "text"
         }
         className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 outline-none focus:border-cyan-300"
-        onChange={(event) => setAnswer(field.id, field.type === "number" ? Number(event.target.value) : event.target.value)}
+        placeholder={placeholder}
+        value={String(answers[field.id] ?? "")}
+        min={field.type === "number" ? field.config?.min : undefined}
+        max={field.type === "number" ? field.config?.max : undefined}
+        step={field.type === "number" ? field.config?.step : undefined}
+        onChange={(event) =>
+          setAnswer(field.id, field.type === "number" ? (event.target.value === "" ? "" : Number(event.target.value)) : event.target.value)
+        }
       />
     );
   };
@@ -221,7 +279,7 @@ export const StagePage = () => {
 
         <AnimatePresence mode="popLayout">
           <div className="space-y-4">
-            {schema.fields.map((field) => (
+            {visibleFields.map((field) => (
               <motion.div
                 key={field.id}
                 layout
@@ -232,6 +290,7 @@ export const StagePage = () => {
               >
                 <label className="mb-2 block text-sm font-semibold">{field.label}</label>
                 {renderInput(field)}
+                {field.config?.helpText && <p className="mt-2 text-xs text-slate-500">{field.config.helpText}</p>}
               </motion.div>
             ))}
           </div>
@@ -241,6 +300,18 @@ export const StagePage = () => {
           <button
             className="rounded-xl bg-cyan-500 px-4 py-2 text-sm font-semibold text-white"
             onClick={async () => {
+              const missingRequired = visibleFields.some((field) => {
+                if (!field.required) return false;
+                const value = answers[field.id];
+                if (Array.isArray(value)) return value.length === 0;
+                return value === undefined || value === null || value === "";
+              });
+              if (missingRequired) {
+                setShowValidationPulse(true);
+                setTimeout(() => setShowValidationPulse(false), 600);
+                pushToast({ title: "Please fill all required visible fields", tone: "error" });
+                return;
+              }
               try {
                 await responsesApi.submit(numericFormId, answers);
                 pushToast({ title: "Form submitted successfully" });

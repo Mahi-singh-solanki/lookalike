@@ -7,11 +7,15 @@ import {
   FileText,
   House,
   LayoutTemplate,
+  LogOut,
+  Mail,
   Menu,
   Moon,
+  Sparkles,
   Plus,
   Search,
   Settings,
+  Shield,
   Sun,
   User,
 } from "lucide-react";
@@ -20,6 +24,7 @@ import { formsApi } from "../lib/api";
 import { useBuilderStore } from "../store/builderStore";
 import { useAuthStore } from "../store/authStore";
 import { useUiStore } from "../store/uiStore";
+import { useThemeStore, type AppTheme } from "../store/themeStore";
 import { BuilderCanvas } from "../components/builder/BuilderCanvas";
 import { TopToolbar } from "../components/builder/TopToolbar";
 import { SettingsPanel } from "../components/builder/SettingsPanel";
@@ -27,21 +32,57 @@ import { LogicMapPanel } from "../components/builder/LogicMapPanel";
 import { LivePreview } from "../components/builder/LivePreview";
 import { AccessPanel } from "../components/builder/AccessPanel";
 import { CommandPalette } from "../components/builder/CommandPalette";
+import type { FieldType, FormSchema } from "../types/form";
 
 type SaveState = "idle" | "saving" | "saved";
 type HomeTab = "home" | "forms" | "templates" | "help";
 
-const templateMock = [
-  { id: "tmp-1", title: "Customer Feedback", subtitle: "NPS + free text" },
-  { id: "tmp-2", title: "Project Intake", subtitle: "Scope + timeline" },
-  { id: "tmp-3", title: "Hiring Pipeline", subtitle: "Role scorecard" },
+const templateMock: Array<{
+  id: string;
+  title: string;
+  subtitle: string;
+  fields: Array<{ label: string; type: FieldType; required?: boolean; options?: string[] }>;
+}> = [
+  {
+    id: "tmp-1",
+    title: "Customer Feedback",
+    subtitle: "NPS + free text",
+    fields: [
+      { label: "Name", type: "text", required: true },
+      { label: "Email", type: "email", required: true },
+      { label: "Rating", type: "rating", required: true },
+      { label: "Comments", type: "textarea" },
+    ],
+  },
+  {
+    id: "tmp-2",
+    title: "Project Intake",
+    subtitle: "Scope + timeline",
+    fields: [
+      { label: "Project Name", type: "text", required: true },
+      { label: "Budget", type: "number", required: true },
+      { label: "Deadline", type: "date" },
+      { label: "Requirements", type: "textarea", required: true },
+    ],
+  },
+  {
+    id: "tmp-3",
+    title: "Hiring Pipeline",
+    subtitle: "Role scorecard",
+    fields: [
+      { label: "Candidate Name", type: "text", required: true },
+      { label: "Role", type: "select", required: true, options: ["Frontend", "Backend", "Fullstack", "Designer"] },
+      { label: "Experience (years)", type: "number" },
+      { label: "Interview Score", type: "slider" },
+    ],
+  },
 ];
 
 const statsMock = [
   { label: "Total Forms", value: "14", tone: "from-[#dccbf2] to-[#cdb6e7]" },
   { label: "Total Responses", value: "50", tone: "from-[#dce8ef] to-[#cbdde7]" },
   { label: "Active Forms", value: "5", tone: "from-[#e2c6ef] to-[#d2aee6]" },
-  { label: "This Month", value: "↑37%", tone: "from-[#e5dfef] to-[#d8d1e5]" },
+  { label: "This Month", value: "+37%", tone: "from-[#e5dfef] to-[#d8d1e5]" },
 ];
 
 const sidebarItems = [
@@ -58,10 +99,9 @@ export const BuilderPage = () => {
   const navigate = useNavigate();
   const params = useParams();
   const pushToast = useUiStore((state) => state.pushToast);
-  const darkMode = useUiStore((state) => state.darkMode);
-  const toggleDarkMode = useUiStore((state) => state.toggleDarkMode);
   const token = useAuthStore((state) => state.token);
   const user = useAuthStore((state) => state.user);
+  const logout = useAuthStore((state) => state.logout);
 
   const {
     formId,
@@ -89,6 +129,12 @@ export const BuilderPage = () => {
   const [accessOpen, setAccessOpen] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
+  const [accountPanel, setAccountPanel] = useState<"settings" | "profile" | null>(null);
+  const [emailNotifications, setEmailNotifications] = useState(true);
+  const [compactSidebar, setCompactSidebar] = useState(false);
+  const theme = useThemeStore((state) => state.theme);
+  const setTheme = useThemeStore((state) => state.setTheme);
+  const cycleTheme = useThemeStore((state) => state.cycleTheme);
 
   const currentUserName = useMemo(() => user?.name ?? user?.email ?? "Designer", [user]);
   const formIdFromUrl = Number(params.formId);
@@ -174,12 +220,129 @@ export const BuilderPage = () => {
     }
   };
 
+  const openTemplate = async (templateId: string) => {
+    const template = templateMock.find((entry) => entry.id === templateId);
+    if (!template) return;
+
+    const nextSchema: FormSchema = {
+      title: template.title,
+      fields: template.fields.map((field, index) => ({
+        id: `f_${index + 1}_${crypto.randomUUID().slice(0, 6)}`,
+        type: field.type,
+        label: field.label,
+        required: Boolean(field.required),
+        options: field.options,
+        x: 120 + (index % 3) * 320,
+        y: 120 + Math.floor(index / 3) * 180,
+        width: 280,
+        style: { accent: "#78e8ff", radius: 16 },
+      })),
+      updatedAt: Date.now(),
+      version: 0,
+    };
+
+    try {
+      updateSchemaLocal(nextSchema);
+      const id = await createForm(template.title);
+      if (id) {
+        pushToast({ title: `${template.title} template loaded` });
+        navigate(`/builder/${id}`);
+      }
+    } catch {
+      pushToast({ title: "Failed to open template", tone: "error" });
+    }
+  };
+
   const onResponses = () => {
     if (myForms[0]?.id) {
       navigate(`/vault/${myForms[0].id}`);
       return;
     }
     pushToast({ title: "No form available for responses yet" });
+  };
+
+  const renderAccountPanel = () => {
+    if (!accountPanel) return null;
+    const isSettings = accountPanel === "settings";
+    return (
+      <motion.div
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: 20 }}
+        className="fixed right-5 top-5 z-50 w-[340px] rounded-3xl border border-slate-300/80 bg-white/95 p-5 shadow-xl dark:border-slate-700 dark:bg-slate-900/95"
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-100">{isSettings ? "Settings" : "Profile"}</h3>
+          <button className="rounded-lg bg-slate-200 px-2 py-1 text-xs dark:bg-slate-800" onClick={() => setAccountPanel(null)}>
+            Close
+          </button>
+        </div>
+
+        {isSettings ? (
+          <div className="space-y-4 text-sm">
+            <label className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
+              <span className="text-slate-600 dark:text-slate-300">Email notifications</span>
+              <input type="checkbox" checked={emailNotifications} onChange={(e) => setEmailNotifications(e.target.checked)} />
+            </label>
+            <label className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
+              <span className="text-slate-600 dark:text-slate-300">Compact sidebar</span>
+              <input type="checkbox" checked={compactSidebar} onChange={(e) => setCompactSidebar(e.target.checked)} />
+            </label>
+            <button
+              className="w-full rounded-xl border border-slate-300 bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+              onClick={() => cycleTheme()}
+            >
+              Cycle Theme
+            </button>
+            <div className="grid grid-cols-3 gap-2">
+              {([
+                { id: "light", label: "Light", icon: Sun },
+                { id: "dark", label: "Dark", icon: Moon },
+                { id: "aurora", label: "Aurora", icon: Sparkles },
+              ] as Array<{ id: AppTheme; label: string; icon: typeof Sun }>).map((item) => {
+                const Icon = item.icon;
+                const active = theme === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setTheme(item.id)}
+                    className={`rounded-xl border px-2 py-2 text-xs ${
+                      active
+                        ? "border-cyan-300 bg-cyan-100 text-cyan-700 dark:border-cyan-500 dark:bg-cyan-900/40 dark:text-cyan-200"
+                        : "border-slate-300 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                    }`}
+                  >
+                    <Icon className="mx-auto mb-1 h-3.5 w-3.5" />
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3 text-sm">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+              <div className="text-xs text-slate-500 dark:text-slate-400">Name</div>
+              <div className="font-medium text-slate-700 dark:text-slate-100">{user?.name ?? "Designer"}</div>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+              <div className="text-xs text-slate-500 dark:text-slate-400">Email</div>
+              <div className="inline-flex items-center gap-1 font-medium text-slate-700 dark:text-slate-100">
+                <Mail className="h-3.5 w-3.5" />
+                {user?.email ?? "Not available"}
+              </div>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+              <div className="text-xs text-slate-500 dark:text-slate-400">Role</div>
+              <div className="inline-flex items-center gap-1 font-medium text-slate-700 dark:text-slate-100">
+                <Shield className="h-3.5 w-3.5" />
+                Form Owner
+              </div>
+            </div>
+          </div>
+        )}
+      </motion.div>
+    );
   };
 
   const mainContent = () => {
@@ -233,9 +396,30 @@ export const BuilderPage = () => {
                 whileHover={{ y: -3 }}
                 className="rounded-3xl border border-slate-200/80 bg-white/75 p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900/70"
               >
-                <div className="mb-4 h-28 rounded-2xl border border-slate-200/80 bg-slate-100/90 dark:border-slate-700 dark:bg-slate-800/80" />
+                <div className="mb-4 h-28 rounded-2xl border border-slate-200/80 bg-slate-100/90 p-3 dark:border-slate-700 dark:bg-slate-800/80">
+                  <div className="mb-2 h-2 w-1/2 rounded bg-slate-300/90 dark:bg-slate-600" />
+                  <div className="mb-2 h-2 w-4/5 rounded bg-slate-200/90 dark:bg-slate-700" />
+                  <div className="mb-2 h-2 w-3/5 rounded bg-slate-200/90 dark:bg-slate-700" />
+                  <div className="h-2 w-2/3 rounded bg-slate-200/90 dark:bg-slate-700" />
+                </div>
                 <div className="text-sm font-semibold text-slate-700 dark:text-slate-100">{template.title}</div>
                 <div className="text-xs text-slate-500 dark:text-slate-400">{template.subtitle}</div>
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {template.fields.slice(0, 3).map((field) => (
+                    <span
+                      key={`${template.id}-tab-${field.label}`}
+                      className="rounded-full border border-slate-300/80 bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                    >
+                      {field.label}
+                    </span>
+                  ))}
+                </div>
+                <button
+                  className="mt-3 rounded-xl border border-slate-300 bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                  onClick={() => void openTemplate(template.id)}
+                >
+                  Use Template
+                </button>
               </motion.article>
             ))}
           </div>
@@ -303,9 +487,30 @@ export const BuilderPage = () => {
                 whileHover={{ y: -3 }}
                 className="rounded-3xl border border-slate-300/70 bg-white/65 p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900/55"
               >
-                <div className="h-28 rounded-2xl border border-slate-300/70 bg-slate-100/90 dark:border-slate-700 dark:bg-slate-800/70" />
+                <div className="h-28 rounded-2xl border border-slate-300/70 bg-slate-100/90 p-3 dark:border-slate-700 dark:bg-slate-800/70">
+                  <div className="mb-2 h-2 w-1/2 rounded bg-slate-300/90 dark:bg-slate-600" />
+                  <div className="mb-2 h-2 w-4/5 rounded bg-slate-200/90 dark:bg-slate-700" />
+                  <div className="mb-2 h-2 w-3/5 rounded bg-slate-200/90 dark:bg-slate-700" />
+                  <div className="h-2 w-2/3 rounded bg-slate-200/90 dark:bg-slate-700" />
+                </div>
                 <div className="mt-3 text-sm font-semibold text-slate-700 dark:text-slate-100">{template.title}</div>
                 <div className="text-xs text-slate-500 dark:text-slate-400">{template.subtitle}</div>
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {template.fields.slice(0, 3).map((field) => (
+                    <span
+                      key={`${template.id}-${field.label}`}
+                      className="rounded-full border border-slate-300/80 bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                    >
+                      {field.label}
+                    </span>
+                  ))}
+                </div>
+                <button
+                  className="mt-3 rounded-xl border border-slate-300 bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                  onClick={() => void openTemplate(template.id)}
+                >
+                  Use Template
+                </button>
               </motion.article>
             ))}
           </div>
@@ -357,8 +562,10 @@ export const BuilderPage = () => {
                 </button>
               );
             })}
-            <button className="shell-nav-item mt-auto" onClick={toggleDarkMode}>
-              <span className="shell-nav-icon">{darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}</span>
+            <button className="shell-nav-item mt-auto" onClick={cycleTheme}>
+              <span className="shell-nav-icon">
+                {theme === "dark" ? <Moon className="h-5 w-5" /> : theme === "aurora" ? <Sparkles className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+              </span>
               <span className="shell-nav-label">Theme</span>
             </button>
             <button className="shell-nav-item">
@@ -366,17 +573,29 @@ export const BuilderPage = () => {
                 <Bell className="h-5 w-5" />
               </span>
             </button>
-            <button className="shell-nav-item">
+            <button className="shell-nav-item" onClick={() => setAccountPanel("settings")}>
               <span className="shell-nav-icon">
                 <Settings className="h-5 w-5" />
               </span>
               <span className="shell-nav-label">Settings</span>
             </button>
-            <button className="shell-nav-item">
+            <button className="shell-nav-item" onClick={() => setAccountPanel("profile")}>
               <span className="shell-nav-icon">
                 <User className="h-5 w-5" />
               </span>
               <span className="shell-nav-label">Profile</span>
+            </button>
+            <button
+              className="shell-nav-item"
+              onClick={() => {
+                logout();
+                navigate("/");
+              }}
+            >
+              <span className="shell-nav-icon">
+                <LogOut className="h-5 w-5" />
+              </span>
+              <span className="shell-nav-label">Logout</span>
             </button>
           </aside>
 
@@ -452,6 +671,7 @@ export const BuilderPage = () => {
             </div>
           </main>
         </div>
+        <AnimatePresence>{renderAccountPanel()}</AnimatePresence>
       </div>
     );
   }
@@ -481,8 +701,10 @@ export const BuilderPage = () => {
               </button>
             );
           })}
-          <button className="shell-nav-item mt-auto" onClick={toggleDarkMode}>
-            <span className="shell-nav-icon">{darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}</span>
+          <button className="shell-nav-item mt-auto" onClick={cycleTheme}>
+            <span className="shell-nav-icon">
+              {theme === "dark" ? <Moon className="h-5 w-5" /> : theme === "aurora" ? <Sparkles className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+            </span>
             <span className="shell-nav-label">Theme</span>
           </button>
           <button className="shell-nav-item">
@@ -490,17 +712,29 @@ export const BuilderPage = () => {
               <Bell className="h-5 w-5" />
             </span>
           </button>
-          <button className="shell-nav-item">
+          <button className="shell-nav-item" onClick={() => setAccountPanel("settings")}>
             <span className="shell-nav-icon">
               <Settings className="h-5 w-5" />
             </span>
             <span className="shell-nav-label">Settings</span>
           </button>
-          <button className="shell-nav-item">
+          <button className="shell-nav-item" onClick={() => setAccountPanel("profile")}>
             <span className="shell-nav-icon">
               <User className="h-5 w-5" />
             </span>
             <span className="shell-nav-label">Profile</span>
+          </button>
+          <button
+            className="shell-nav-item"
+            onClick={() => {
+              logout();
+              navigate("/");
+            }}
+          >
+            <span className="shell-nav-icon">
+              <LogOut className="h-5 w-5" />
+            </span>
+            <span className="shell-nav-label">Logout</span>
           </button>
         </aside>
 
@@ -518,6 +752,7 @@ export const BuilderPage = () => {
           </AnimatePresence>
         </main>
       </div>
+      <AnimatePresence>{renderAccountPanel()}</AnimatePresence>
       <CommandPalette />
     </div>
   );

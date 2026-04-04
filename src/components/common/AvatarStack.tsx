@@ -3,7 +3,7 @@ import type { PresenceUser } from "../../types/form";
 
 export const AvatarStack = ({ users }: { users: PresenceUser[] }) => {
   return (
-    <div className="flex items-center">
+    <div className="flex ml-2 items-center">
       {users.slice(0, 5).map((user, idx) => (
         <motion.div
           key={user.socketId}

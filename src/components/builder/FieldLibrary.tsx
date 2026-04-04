@@ -37,8 +37,8 @@ const FieldChip = ({ type }: { type: FieldType }) => {
 
 export const FieldLibrary = ({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) => {
   return (
-    <motion.div className="fixed left-5 top-24 z-20" initial={{ x: -24, opacity: 0 }} animate={{ x: 0, opacity: 1 }}>
-      <GlassPanel className="w-[250px] p-3">
+    <motion.div className="fixed  top-24 z-20" initial={{ x: -28, opacity: 0 }} animate={{ x: 0, opacity: 1 }}>
+      <GlassPanel className="w-[250px] mt-5 ml-20 p-3">
         <button className="mb-3 flex w-full items-center justify-between rounded-xl bg-white/10 px-3 py-2" onClick={onToggle}>
           <span className="text-sm font-semibold">Field Library</span>
           <Layers3 className="h-4 w-4" />

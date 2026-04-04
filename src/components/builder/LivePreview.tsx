@@ -2,38 +2,67 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import type { FormField, FormSchema } from "../../types/form";
 import { useBuilderStore } from "../../store/builderStore";
+import { isFieldVisible } from "../../lib/fieldLogic";
 
 const PreviewField = ({
   field,
+  value,
+  onValueChange,
   onMoveUp,
   onMoveDown,
   canMoveUp,
   canMoveDown,
 }: {
   field: FormField;
+  value: unknown;
+  onValueChange: (value: unknown) => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
   canMoveUp: boolean;
   canMoveDown: boolean;
 }) => {
   const options = field.options ?? ["Option 1", "Option 2"];
+  const min = field.config?.min ?? (field.type === "rating" ? 1 : 0);
+  const max = field.config?.max ?? (field.type === "rating" ? 5 : 100);
+  const step = field.config?.step ?? 1;
+  const placeholder = field.config?.placeholder ?? "";
 
   const renderInput = () => {
-    if (field.type === "textarea") return <textarea className="w-full rounded-xl border border-slate-200 px-3 py-2" />;
+    if (field.type === "textarea") {
+      return (
+        <textarea
+          rows={field.config?.rows ?? 3}
+          value={String(value ?? "")}
+          className="w-full rounded-xl border border-slate-200 px-3 py-2"
+          placeholder={placeholder}
+          onChange={(event) => onValueChange(event.target.value)}
+        />
+      );
+    }
     if (field.type === "select") {
       return (
-        <select className="w-full rounded-xl border border-slate-200 px-3 py-2">
+        <select className="w-full rounded-xl border border-slate-200 px-3 py-2" value={String(value ?? "")} onChange={(event) => onValueChange(event.target.value)}>
+          <option value="">Select an option</option>
           {options.map((option) => (
-            <option key={option}>{option}</option>
+            <option key={option} value={option}>
+              {option}
+            </option>
           ))}
         </select>
       );
     }
     if (field.type === "multiselect") {
       return (
-        <select multiple className="w-full rounded-xl border border-slate-200 px-3 py-2">
+        <select
+          multiple
+          className="w-full rounded-xl border border-slate-200 px-3 py-2"
+          value={Array.isArray(value) ? value.map((entry) => String(entry)) : []}
+          onChange={(event) => onValueChange(Array.from(event.currentTarget.selectedOptions).map((option) => option.value))}
+        >
           {options.map((option) => (
-            <option key={option}>{option}</option>
+            <option key={option} value={option}>
+              {option}
+            </option>
           ))}
         </select>
       );
@@ -43,21 +72,22 @@ const PreviewField = ({
         <div className="space-y-2 text-sm">
           {options.map((option) => (
             <label key={option} className="flex items-center gap-2">
-              <input type="radio" name={field.id} /> {option}
+              <input type="radio" name={field.id} checked={String(value ?? "") === option} onChange={() => onValueChange(option)} /> {option}
             </label>
           ))}
         </div>
       );
     }
-    if (field.type === "checkbox") return <input type="checkbox" />;
-    if (field.type === "date") return <input type="date" className="w-full rounded-xl border border-slate-200 px-3 py-2" />;
-    if (field.type === "email") return <input type="email" className="w-full rounded-xl border border-slate-200 px-3 py-2" />;
-    if (field.type === "phone") return <input type="tel" className="w-full rounded-xl border border-slate-200 px-3 py-2" />;
-    if (field.type === "number") return <input type="number" className="w-full rounded-xl border border-slate-200 px-3 py-2" />;
-    if (field.type === "rating") return <input type="range" min={1} max={5} className="w-full accent-cyan-500" />;
-    if (field.type === "slider") return <input type="range" min={0} max={100} className="w-full accent-cyan-500" />;
-    if (field.type === "file") return <input type="file" className="w-full min-w-0 text-sm" />;
-    return <input className="w-full rounded-xl border border-slate-200 px-3 py-2" placeholder="Type here" />;
+    if (field.type === "checkbox") return <input type="checkbox" checked={Boolean(value)} onChange={(event) => onValueChange(event.target.checked)} />;
+    if (field.type === "date")
+      return <input type="date" className="w-full rounded-xl border border-slate-200 px-3 py-2" value={String(value ?? "")} onChange={(event) => onValueChange(event.target.value)} />;
+    if (field.type === "email") return <input type="email" value={String(value ?? "")} onChange={(event) => onValueChange(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2" placeholder={placeholder} />;
+    if (field.type === "phone") return <input type="tel" value={String(value ?? "")} onChange={(event) => onValueChange(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2" placeholder={placeholder} />;
+    if (field.type === "number") return <input type="number" min={field.config?.min} max={field.config?.max} step={field.config?.step} value={value === undefined ? "" : String(value)} onChange={(event) => onValueChange(event.target.value === "" ? undefined : Number(event.target.value))} className="w-full rounded-xl border border-slate-200 px-3 py-2" placeholder={placeholder} />;
+    if (field.type === "rating") return <input type="range" min={min} max={max} step={step} value={typeof value === "number" ? value : min} onChange={(event) => onValueChange(Number(event.target.value))} className="w-full accent-cyan-500" />;
+    if (field.type === "slider") return <input type="range" min={min} max={max} step={step} value={typeof value === "number" ? value : min} onChange={(event) => onValueChange(Number(event.target.value))} className="w-full accent-cyan-500" />;
+    if (field.type === "file") return <input type="file" accept={field.config?.accept} multiple={Boolean(field.config?.multiple)} className="w-full min-w-0 text-sm" />;
+    return <input value={String(value ?? "")} onChange={(event) => onValueChange(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2" placeholder={placeholder || "Type here"} />;
   };
 
   return (
@@ -65,6 +95,7 @@ const PreviewField = ({
       <div className="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-4 text-slate-800 shadow-soft">
         <label className="mb-2 block break-words text-sm font-semibold">{field.label}</label>
         {renderInput()}
+        {field.config?.helpText && <p className="mt-2 text-xs text-slate-500">{field.config.helpText}</p>}
       </div>
       <div className="flex h-[120px] w-14 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white px-1 py-2">
         <div className="flex flex-col gap-1">
@@ -93,6 +124,7 @@ const PreviewField = ({
 export const LivePreview = ({ schema }: { schema: FormSchema }) => {
   const previewMode = useBuilderStore((state) => state.previewMode);
   const [previewOrder, setPreviewOrder] = useState<string[]>([]);
+  const [answers, setAnswers] = useState<Record<string, unknown>>({});
 
   useEffect(() => {
     setPreviewOrder((prev) => {
@@ -103,10 +135,28 @@ export const LivePreview = ({ schema }: { schema: FormSchema }) => {
     });
   }, [schema.fields]);
 
+  useEffect(() => {
+    setAnswers((prev) => {
+      const next: Record<string, unknown> = {};
+      for (const field of schema.fields) {
+        if (prev[field.id] !== undefined) {
+          next[field.id] = prev[field.id];
+          continue;
+        }
+        if (field.config?.defaultValue !== undefined && field.config.defaultValue !== "") {
+          next[field.id] = field.config.defaultValue;
+        }
+      }
+      return next;
+    });
+  }, [schema.fields]);
+
   const sortedFields = useMemo(() => {
     const indexById = new Map(previewOrder.map((id, index) => [id, index]));
-    return [...schema.fields].sort((a, b) => (indexById.get(a.id) ?? 0) - (indexById.get(b.id) ?? 0));
-  }, [previewOrder, schema.fields]);
+    return [...schema.fields]
+      .sort((a, b) => (indexById.get(a.id) ?? 0) - (indexById.get(b.id) ?? 0))
+      .filter((field) => isFieldVisible(field, answers));
+  }, [answers, previewOrder, schema.fields]);
 
   const moveOnePlace = (fieldId: string, direction: -1 | 1) => {
     setPreviewOrder((prev) => {
@@ -136,6 +186,8 @@ export const LivePreview = ({ schema }: { schema: FormSchema }) => {
               <motion.div key={field.id} layout initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
                 <PreviewField
                   field={field}
+                  value={answers[field.id]}
+                  onValueChange={(value) => setAnswers((prev) => ({ ...prev, [field.id]: value }))}
                   canMoveUp={sortedFields.findIndex((entry) => entry.id === field.id) > 0}
                   canMoveDown={sortedFields.findIndex((entry) => entry.id === field.id) < sortedFields.length - 1}
                   onMoveUp={() => moveOnePlace(field.id, -1)}

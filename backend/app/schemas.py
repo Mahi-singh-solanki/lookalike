@@ -36,6 +36,12 @@ class Field(BaseModel):
     required: Optional[bool] = False
     options: Optional[List[str]] = None
     conditions: Optional[List[Dict[str, Any]]] = None
+    visibility: Optional[Dict[str, Any]] = None
+    config: Optional[Dict[str, Any]] = None
+    x: Optional[float] = None
+    y: Optional[float] = None
+    width: Optional[float] = None
+    style: Optional[Dict[str, Any]] = None
 
     @field_validator("id", "label")
     @classmethod

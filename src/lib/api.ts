@@ -89,35 +89,30 @@ export const uploadApi = {
   async upload(file: File) {
     const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME as string | undefined;
     const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET as string | undefined;
-    if (cloudName && uploadPreset) {
-      const cloudinaryData = new FormData();
-      cloudinaryData.append("file", file);
-      cloudinaryData.append("upload_preset", uploadPreset);
-      const cloudinaryResponse = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/upload`, {
-        method: "POST",
-        body: cloudinaryData,
-      });
-      if (!cloudinaryResponse.ok) throw new Error("Cloudinary upload failed");
-      const uploaded = (await cloudinaryResponse.json()) as { secure_url: string };
-      return { url: uploaded.secure_url };
+
+    if (!cloudName || !uploadPreset) {
+      throw new Error("Cloudinary is not configured. Set VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET.");
     }
 
-    const formData = new FormData();
-    formData.append("file", file);
-    const token = localStorage.getItem("formflow_token") ?? "";
-    const authorization = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
-    const response = await fetch(`${API_BASE_URL}/upload`, {
+    const cloudinaryData = new FormData();
+    cloudinaryData.append("file", file);
+    cloudinaryData.append("upload_preset", uploadPreset);
+    cloudinaryData.append("filename_override", file.name);
+
+    // Use Cloudinary's auto endpoint so images, videos, and generic files are all supported.
+    const cloudinaryResponse = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, {
       method: "POST",
-      headers: {
-        Authorization: authorization,
-      },
-      body: formData,
+      body: cloudinaryData,
     });
 
-    if (!response.ok) {
-      throw new Error("File upload failed");
+    if (!cloudinaryResponse.ok) {
+      throw new Error("Cloudinary upload failed");
     }
 
-    return (await response.json()) as { url: string };
+    const uploaded = (await cloudinaryResponse.json()) as { secure_url?: string; url?: string };
+    if (!uploaded.secure_url && !uploaded.url) {
+      throw new Error("Cloudinary response did not include a URL");
+    }
+    return { url: uploaded.secure_url ?? uploaded.url ?? "" };
   },
 };

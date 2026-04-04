@@ -11,9 +11,30 @@ interface CanvasFieldProps {
 
 const NodeInputPreview = ({ field }: { field: FormField }) => {
   const options = field.options ?? ["Option 1", "Option 2"];
+  const min = field.config?.min ?? (field.type === "rating" ? 1 : 0);
+  const max = field.config?.max ?? (field.type === "rating" ? 5 : 100);
+  const step = field.config?.step ?? 1;
+  const placeholder =
+    field.config?.placeholder ??
+    (field.type === "email"
+      ? "name@email.com"
+      : field.type === "phone"
+        ? "+1 555 000 0000"
+        : field.type === "number"
+          ? "0"
+          : field.type === "textarea"
+            ? "Long answer"
+            : "Type here");
 
   if (field.type === "textarea") {
-    return <textarea disabled className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs text-slate-300" placeholder="Long answer" />;
+    return (
+      <textarea
+        disabled
+        rows={field.config?.rows ?? 3}
+        className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs text-slate-300"
+        placeholder={placeholder}
+      />
+    );
   }
   if (field.type === "select") {
     return (
@@ -47,14 +68,36 @@ const NodeInputPreview = ({ field }: { field: FormField }) => {
     );
   }
   if (field.type === "date") return <input disabled type="date" className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs text-slate-300" />;
-  if (field.type === "email") return <input disabled type="email" className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs text-slate-300" placeholder="name@email.com" />;
-  if (field.type === "phone") return <input disabled type="tel" className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs text-slate-300" placeholder="+1 555 000 0000" />;
-  if (field.type === "number") return <input disabled type="number" className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs text-slate-300" placeholder="0" />;
-  if (field.type === "rating") return <input disabled type="range" min={1} max={5} className="w-full accent-cyan-300" />;
-  if (field.type === "slider") return <input disabled type="range" min={0} max={100} className="w-full accent-cyan-300" />;
-  if (field.type === "file") return <input disabled type="file" className="w-full text-xs text-slate-300 file:mr-2 file:rounded-lg file:border-0 file:bg-cyan-300/30 file:px-2 file:py-1" />;
+  if (field.type === "email") return <input disabled type="email" className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs text-slate-300" placeholder={placeholder} />;
+  if (field.type === "phone") return <input disabled type="tel" className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs text-slate-300" placeholder={placeholder} />;
+  if (field.type === "number") {
+    return (
+      <input
+        disabled
+        type="number"
+        min={field.config?.min}
+        max={field.config?.max}
+        step={field.config?.step}
+        className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs text-slate-300"
+        placeholder={placeholder}
+      />
+    );
+  }
+  if (field.type === "rating") return <input disabled type="range" min={min} max={max} step={step} className="w-full accent-cyan-300" />;
+  if (field.type === "slider") return <input disabled type="range" min={min} max={max} step={step} className="w-full accent-cyan-300" />;
+  if (field.type === "file") {
+    return (
+      <input
+        disabled
+        type="file"
+        accept={field.config?.accept}
+        multiple={Boolean(field.config?.multiple)}
+        className="w-full text-xs text-slate-300 file:mr-2 file:rounded-lg file:border-0 file:bg-cyan-300/30 file:px-2 file:py-1"
+      />
+    );
+  }
 
-  return <input disabled type="text" className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs text-slate-300" placeholder="Type here" />;
+  return <input disabled type="text" className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs text-slate-300" placeholder={placeholder} />;
 };
 
 export const CanvasField = ({ field, selected, editingUser, onSelect, onPositionChange }: CanvasFieldProps) => {
@@ -69,10 +112,17 @@ export const CanvasField = ({ field, selected, editingUser, onSelect, onPosition
         const y = Math.round(((field.y ?? 100) + info.offset.y) / 20) * 20;
         onPositionChange(x, y);
       }}
-      className={`absolute w-[280px] rounded-3xl border p-4 shadow-glow ${
+      className={`absolute w-[280px] border p-4 shadow-glow ${
         selected ? "border-cyan-300/80 bg-cyan-300/10" : "border-white/15 bg-slate-900/60"
       }`}
-      style={{ left: field.x ?? 100, top: field.y ?? 100 }}
+      style={{
+        left: field.x ?? 100,
+        top: field.y ?? 100,
+        borderRadius: field.style?.radius ?? 16,
+        borderColor: field.style?.accent ?? (selected ? "#78e8ff" : undefined),
+        backgroundColor: `${field.style?.accent ?? "#78e8ff"}1A`,
+        boxShadow: selected ? `0 0 0 1px ${field.style?.accent ?? "#78e8ff"}55` : undefined,
+      }}
       onMouseDown={(event) => {
         event.stopPropagation();
         onSelect();
@@ -81,6 +131,7 @@ export const CanvasField = ({ field, selected, editingUser, onSelect, onPosition
     >
       <div className="text-xs uppercase tracking-wide text-slate-300">{field.type}</div>
       <div className="mt-2 text-sm font-semibold">{field.label}</div>
+      {field.config?.helpText && <div className="mt-1 text-xs text-slate-400">{field.config.helpText}</div>}
       <div className="pointer-events-none mt-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
         <NodeInputPreview field={field} />
       </div>

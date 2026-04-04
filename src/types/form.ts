@@ -13,6 +13,42 @@ export type FieldType =
   | "slider"
   | "file";
 
+export type ConditionOperator =
+  | "equals"
+  | "not_equals"
+  | "contains"
+  | "not_contains"
+  | "gt"
+  | "gte"
+  | "lt"
+  | "lte"
+  | "is_empty"
+  | "is_not_empty";
+
+export interface FieldCondition {
+  id: string;
+  fieldId: string;
+  operator: ConditionOperator;
+  value?: string;
+}
+
+export interface FieldVisibility {
+  mode: "all" | "any";
+  rules: FieldCondition[];
+}
+
+export interface FieldConfig {
+  placeholder?: string;
+  helpText?: string;
+  defaultValue?: string;
+  min?: number;
+  max?: number;
+  step?: number;
+  rows?: number;
+  accept?: string;
+  multiple?: boolean;
+}
+
 export interface FormField {
   id: string;
   type: FieldType;
@@ -20,6 +56,8 @@ export interface FormField {
   required?: boolean;
   options?: string[];
   conditions?: Record<string, unknown>[];
+  visibility?: FieldVisibility;
+  config?: FieldConfig;
   x?: number;
   y?: number;
   width?: number;

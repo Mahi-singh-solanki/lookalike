@@ -7,6 +7,7 @@ import { VaultPage } from "./pages/VaultPage";
 import { ToastHost } from "./components/common/ToastHost";
 import { useAuthStore } from "./store/authStore";
 import { useUiStore } from "./store/uiStore";
+import { useThemeStore, type AppTheme } from "./store/themeStore";
 
 export default function App() {
   const hydrate = useAuthStore((state) => state.hydrate);
@@ -14,6 +15,8 @@ export default function App() {
   const setCommandPalette = useUiStore((state) => state.setCommandPalette);
   const darkMode = useUiStore((state) => state.darkMode);
   const toggleDarkMode = useUiStore((state) => state.toggleDarkMode);
+  const theme = useThemeStore((state) => state.theme);
+  const setTheme = useThemeStore((state) => state.setTheme);
 
   useEffect(() => {
     void hydrate();
@@ -37,17 +40,27 @@ export default function App() {
       if (darkMode) toggleDarkMode();
       return;
     }
-    const shouldDark = saved === "dark";
+    const nextTheme: AppTheme = saved === "dark" || saved === "aurora" ? (saved as AppTheme) : "light";
+    setTheme(nextTheme);
+    const shouldDark = nextTheme === "dark";
     if (shouldDark !== darkMode) toggleDarkMode();
     // initialize from persisted preference only once
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    document.body.classList.toggle("theme-dark", darkMode);
-    document.body.classList.toggle("theme-light", !darkMode);
-    localStorage.setItem("formflow_theme", darkMode ? "dark" : "light");
-  }, [darkMode]);
+    const shouldDark = theme === "dark";
+    if (shouldDark !== darkMode) {
+      toggleDarkMode();
+      return;
+    }
+
+    document.documentElement.classList.toggle("dark", shouldDark);
+    document.body.classList.toggle("theme-light", theme === "light");
+    document.body.classList.toggle("theme-dark", theme === "dark");
+    document.body.classList.toggle("theme-aurora", theme === "aurora");
+    localStorage.setItem("formflow_theme", theme);
+  }, [darkMode, theme, toggleDarkMode]);
 
   return (
     <>

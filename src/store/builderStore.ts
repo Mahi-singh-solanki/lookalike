@@ -175,6 +175,24 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
       label: DEFAULT_LABEL_BY_TYPE[type],
       required: false,
       options: type === "select" || type === "radio" || type === "multiselect" ? ["Option 1", "Option 2"] : undefined,
+      visibility: { mode: "all" as const, rules: [] },
+      config: {
+        placeholder:
+          type === "text"
+            ? "Type here"
+            : type === "textarea"
+              ? "Write your answer"
+              : type === "email"
+                ? "name@email.com"
+                : type === "phone"
+                  ? "+1 555 000 0000"
+                  : type === "number"
+                    ? "0"
+                    : undefined,
+        min: type === "rating" ? 1 : type === "slider" ? 0 : undefined,
+        max: type === "rating" ? 5 : type === "slider" ? 100 : undefined,
+        step: type === "rating" ? 1 : type === "slider" ? 1 : type === "number" ? 1 : undefined,
+      },
       x: Math.round(x / 20) * 20,
       y: Math.round(y / 20) * 20,
       width: 280,
