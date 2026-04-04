@@ -17,13 +17,13 @@ fastapi_app = FastAPI(title="Lookalike")
 
 cors_origins = [
     origin.strip()
-    for origin in os.getenv("BACKEND_CORS_ORIGINS", "http://localhost:5173","https://formflowww.netlify.app").split(",")
+    for origin in os.getenv("BACKEND_CORS_ORIGINS", "http://localhost:5173").split(",")
     if origin.strip()
 ]
 
 fastapi_app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins,
+    allow_origins=[cors_origins,"https://formflowww.netlify.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
