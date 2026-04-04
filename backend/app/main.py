@@ -23,7 +23,7 @@ cors_origins = [
 
 fastapi_app.add_middleware(
     CORSMiddleware,
-    allow_origins=[cors_origins,"https://formflowww.netlify.app"],
+    allow_origins=cors_origins + ["https://formflowww.netlify.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
