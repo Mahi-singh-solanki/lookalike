@@ -7,7 +7,8 @@ import { useBuilderStore } from "../../store/builderStore";
 import { useUiStore } from "../../store/uiStore";
 import { useThemeStore } from "../../store/themeStore";
 import { useNavigate } from "react-router-dom";
-import { Undo2,Redo2,Bot,User    } from 'lucide-react';
+import { Undo2,Redo2,Bot,User,ChevronLeft,ChevronRight     } from 'lucide-react';
+import { useState } from "react";
 
 export const TopToolbar = ({
   onOpenAccess,
@@ -33,10 +34,17 @@ export const TopToolbar = ({
   const navigate = useNavigate();
   const { presenceUsers, connectionStatus, previewMode, setPreviewMode, undo, redo, formId } = useBuilderStore();
   const { setCommandPalette } = useUiStore();
+  const [embed,Setembed]=useState(false);
   const theme = useThemeStore((state) => state.theme);
   const cycleTheme = useThemeStore((state) => state.cycleTheme);
-
+const embedCode = `<iframe 
+  src="http://localhost:5173/stage/${formId}"
+  width="100%"
+  height="600"
+  style="border:none;">
+</iframe>`;
   return (
+    <>
     <motion.div layout className="pointer-events-none fixed  right-12 top-4 z-30 w-[min(98vw,1320px)] ">
       <GlassPanel className="pointer-events-auto flex flex-wrap items-center justify-between gap-y-2 border border-white/10 px-4 py-3">
         <div className="flex min-w-0 flex-wrap items-center gap-2.5">
@@ -96,6 +104,11 @@ export const TopToolbar = ({
               <User  className="-mr-1 inline h-3.5 w-3.5" /> + Access
             </button>
           )}
+          {formId && (
+            <button className="rounded-xl bg-white/10 px-3 py-1 text-xs" onClick={()=>Setembed(!embed)}>
+              <ChevronLeft   className="-mr-1 inline h-3.5 w-3.5" /><ChevronRight   className="-mr-1 inline h-3.5 w-3.5" />
+            </button>
+          )}
           <AvatarStack  users={presenceUsers} />
           <button className="rounded-lg bg-white/10 p-2" onClick={cycleTheme}>
             {theme === "dark" ? <Moon className="h-4 w-4" /> : theme === "aurora" ? <Sparkles className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
@@ -106,7 +119,30 @@ export const TopToolbar = ({
             </button>
           )}
         </div>
+       
       </GlassPanel>
+      
     </motion.div>
+    {embed && (
+  <div className="fixed right-10 top-20 z-50 w-[400px] rounded-xl bg-gray-800  p-4 shadow-lg">
+    <h3 className="mb-2 text-sm font-semibold text-white">
+      Embed Code
+    </h3>
+
+    <textarea
+      readOnly
+      value={embedCode}
+      className="w-full h-40 rounded-lg border border-gray-600 p-2 text-xs text-white bg-gray-800"
+    />
+
+    <button
+      className="mt-2 rounded-lg bg-black px-3 py-1 text-white text-xs"
+      onClick={() => navigator.clipboard.writeText(embedCode)}
+    >
+      Copy Code
+    </button>
+  </div>
+)}
+    </>
   );
 };
